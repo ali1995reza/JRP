@@ -13,6 +13,8 @@ public class JRPSessionDetailsHolder {
 
 
     public boolean fireToken(int token) {
+        System.out.println("Provided token :" +token);
+        System.out.println("TOken : "+currentToken);
         if(token==currentToken){
             currentToken = RANDOM.nextInt();
             return true;

@@ -102,7 +102,9 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
             if (read <= 0)
                 throw new IOException("socket input closed");
             if (!packetDetector.hasRemaining()) {
-                int packetSize = packetDetector.position(0).getInt();
+                packetDetector.position(0);
+                int packetSize = packetDetector.getInt();
+                System.out.println(packetSize);
                 packetDetector.clear();
                 if (packetSize < 0)
                     throw new IOException("packet size negative");
@@ -120,7 +122,7 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
                 currentPacket.flip();
                 ByteBuffer pack = currentPacket;
                 currentPacket = null;
-                packetHandler.accept(this, currentPacket);
+                packetHandler.accept(this, pack);
             }
         }
     }
@@ -130,6 +132,7 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
         synchronized (sendBuffer) {
             sendBuffer.flip();
             int wrote = socketChannel.write(sendBuffer);
+            System.out.println("Wrote : "+wrote);
             if (wrote <= 0)
                 throw new IOException("output closed");
 
@@ -160,12 +163,13 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
                 throw new IOException("socket idle");
             else idle = true;
         } else {
-            send(EMPTY_PACKET);
+            sendRaw(EMPTY_PACKET);
         }
     }
 
     @Override
     public void onException(Throwable e, IoOperation op) {
+        e.printStackTrace();
         if (!ioState.isCanceled()) {
             ioState.cancel();
         }

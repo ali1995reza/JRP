@@ -1,6 +1,7 @@
 package jrp.gami;
 
 import jrp.api.JRPSession;
+import jrp.gami.components.Game;
 import jrp.gami.components.Player;
 
 public class UserDetails {
@@ -22,6 +23,7 @@ public class UserDetails {
     private final String username;
     private final JRPSession session;
     private State state = State.LOGGED_ID;
+    private Game game;
 
     public UserDetails(long id, String username, JRPSession session) {
         this.id = id;
@@ -41,7 +43,20 @@ public class UserDetails {
         return state;
     }
 
+    public void setState(State state) {
+        this.state = state;
+    }
+
     public JRPSession getSession() {
         return session;
     }
+
+    public void setGame(Game game) {
+        this.game = game;
+    }
+
+    public Game getGame() {
+        return game;
+    }
+
 }

@@ -1,24 +1,29 @@
 package jrp.gami;
 
-import jrp.api.JRPEventListener;
-import jrp.api.JRPRequest;
-import jrp.api.JRPServer;
-import jrp.api.JRPSession;
+import jrp.api.*;
+import jrp.gami.components.Game;
 import jrp.impl.JRPServerImpl;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GamiServer implements JRPEventListener {
 
-
     private final JRPServer server;
     private final List<JRPSession> finders = new ArrayList<>();
+    private final GameRoutineCaller routineCaller;
+    private final ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public GamiServer(InetSocketAddress address) {
         this.server = new JRPServerImpl(address);
+        this.server.start();
+        this.routineCaller = new GameRoutineCaller(5);
+        this.server.registerRequestHandler(88,this::echo);
         this.server.registerRequestHandler(100, this::handleLogin);
         this.server.registerRequestHandler(200, this::handleFindGame);
         this.server.registerRequestHandler(300, this::stopFindGame);
@@ -30,18 +35,23 @@ public class GamiServer implements JRPEventListener {
         return new String(data);
     }
 
+    private void echo(JRPRequest request) {
+        System.out.println("ECHO");
+        request.response(ProtocolConstants.StatusCodes.OK,
+                request.data());
+    }
 
     private void handleLogin(JRPRequest request) {
         JRPSession session = request.requester();
         if (session.attachment() == null) {
             //todo handle
             //for now just get username
-            session.attach(new UserDetails(id, getAsString(request.data()), session));
+            String username = getAsString(request.data());
+            session.attach(new UserDetails(username.hashCode(), username, session));
         } else {
             request.response(GamiStatusCodes.ALREADY_LOGGED_ID);
         }
     }
-
 
     private void handleFindGame(JRPRequest request) {
         UserDetails details = request.requester().attachment();
@@ -49,25 +59,37 @@ public class GamiServer implements JRPEventListener {
             request.response(GamiStatusCodes.USER_BAD_STATE);
         } else {
             synchronized (finders) {
-                if(!finders.isEmpty()) {
-                    //todo create a game here
-
+                request.response(ProtocolConstants.StatusCodes.OK);
+                if (!finders.isEmpty()) {
+                    JRPSession otherPlayer = finders.remove(0);
+                    Game game = new Game(UUID.randomUUID().toString(), Arrays.asList(otherPlayer.attachment(), request.requester().attachment()), new DoozScript(), g -> {
+                        routineCaller.register(g);
+                        games.remove(g.id(), g);
+                    });
+                    games.put(game.id(), game);
+                    if (game.initialize()) {
+                        routineCaller.register(game);
+                    }
+                } else {
+                    details.setState(UserDetails.State.FINDING_GAME);
+                    finders.add(request.requester());
                 }
             }
             //todo queue for finding game !
         }
     }
 
-
     private void stopFindGame(JRPRequest request) {
         UserDetails details = request.requester().attachment();
         if (details == null || details.state().isNot(UserDetails.State.FINDING_GAME)) {
             request.response(GamiStatusCodes.USER_BAD_STATE);
         } else {
-            //todo queue for finding game !
+            synchronized (finders) {
+                request.response(ProtocolConstants.StatusCodes.OK);
+                finders.remove(request.requester());
+            }
         }
     }
-
 
     @Override
     public void onSessionOpened(JRPSession session) {
@@ -79,4 +101,5 @@ public class GamiServer implements JRPEventListener {
             finders.remove(closedSession);
         }
     }
+
 }

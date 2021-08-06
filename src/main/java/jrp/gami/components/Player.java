@@ -2,10 +2,22 @@ package jrp.gami.components;
 
 import jrp.api.JRPSession;
 
+import java.nio.ByteBuffer;
+
 public class Player {
 
     public enum State {
-        CONNECTED, DISCONNECTED;
+        CONNECTED((byte)1), DISCONNECTED((byte)0);
+
+        private final byte code;
+
+        State(byte code) {
+            this.code = code;
+        }
+
+        public byte code() {
+            return code;
+        }
 
         public boolean is(State other) {
             return this == other;
@@ -54,5 +66,16 @@ public class Player {
 
     public String getUsername() {
         return username;
+    }
+
+    ByteBuffer infoAsBuffer() {
+        byte[] nameBytes = username.getBytes();
+        ByteBuffer buffer = ByteBuffer.allocate(nameBytes.length+4+1+8);
+        buffer.putLong(id)
+                .put(state.code())
+                .putInt(nameBytes.length)
+                .put(nameBytes);
+        buffer.flip();
+        return buffer;
     }
 }

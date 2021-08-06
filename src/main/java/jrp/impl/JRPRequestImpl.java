@@ -18,6 +18,7 @@ public class JRPRequestImpl implements JRPRequest {
         this.session = session;
         this.data = data;
         this.nextToken = nextToken;
+        System.out.println("NEXT TOKEN IS : "+nextToken);
         this.requestId = requestId;
     }
 
@@ -38,8 +39,9 @@ public class JRPRequestImpl implements JRPRequest {
             throw new IllegalStateException("already responded");
         respond = true;
         response = response.duplicate();
-        ByteBuffer buffer = ByteBuffer.allocate(response.remaining()+4+1);
+        ByteBuffer buffer = ByteBuffer.allocate(response.remaining()+4+4+1);
         buffer.put(ProtocolConstants.RESPONSE)
+                .putInt(nextToken)
                 .putInt(status)
                 .put(response);
         buffer.flip();
@@ -51,8 +53,9 @@ public class JRPRequestImpl implements JRPRequest {
         if(respond)
             throw new IllegalStateException("already responded");
         respond = true;
-        ByteBuffer buffer = ByteBuffer.allocate(4+1);
+        ByteBuffer buffer = ByteBuffer.allocate(4+4+1);
         buffer.put(ProtocolConstants.RESPONSE)
+                .putInt(nextToken)
                 .putInt(status);
         buffer.flip();
         session.sendRaw(buffer);

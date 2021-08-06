@@ -4,6 +4,7 @@ import jrp.api.JRPEventListener;
 import jrp.api.JRPServer;
 import jrp.api.ProtocolConstants;
 import jrp.api.RequestHandler;
+import jrp.utils.concurrency.common.ThreadConfig;
 import jrp.utils.transport.nio.implement.NIOProcessor;
 
 import java.io.IOException;
@@ -20,7 +21,8 @@ public class JRPServerImpl implements JRPServer {
 
 
     public JRPServerImpl(InetSocketAddress address) {
-        this.processor = new NIOProcessor();
+        this.processor = new NIOProcessor(new ThreadConfig(Thread.MAX_PRIORITY, false));
+        this.processor.setIdleCheckTime(1000);
         this.handlers = new ConcurrentHashMap<>();
         serverIoHandler = new JRPSocketServerIoHandler(address, eventListener, this::handlePacket);
     }
@@ -58,7 +60,7 @@ public class JRPServerImpl implements JRPServer {
 
         JRPRequestImpl request = new JRPRequestImpl(
                 session, packet,
-                token, requestId
+                session.sessionDetails().getCurrentToken(), requestId
         );
 
         RequestHandler handler = handlers.get(requestId);

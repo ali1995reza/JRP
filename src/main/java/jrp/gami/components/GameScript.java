@@ -12,7 +12,7 @@ public interface GameScript {
 
     void onPlayerStateChanged(Player player);
 
-    ByteBuffer onGameStateChanged(Game.State lastState, Game game);
+    ByteBuffer onGameStateChanged(Game.State lastState, Game game, Player player);
 
 
 
