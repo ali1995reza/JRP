@@ -1,6 +1,7 @@
 package jrp.gami.components;
 
 import jrp.api.JRPSession;
+import jrp.gami.GamiMessageCodes;
 
 import java.nio.ByteBuffer;
 
@@ -28,6 +29,8 @@ public class Player {
         }
     }
 
+    private final ByteBuffer GAME_PACKET_HEADER =
+            ByteBuffer.wrap(new byte[]{GamiMessageCodes.GAME_PACKET});
 
     private final long id;
     private final String username;
@@ -66,6 +69,22 @@ public class Player {
 
     public String getUsername() {
         return username;
+    }
+
+    public void sendPacket(ByteBuffer byteBuffer) {
+        if(state.is(State.DISCONNECTED))
+            return;
+        ByteBuffer buffer = ByteBuffer.allocate(byteBuffer.remaining()+1);
+        buffer.put(GamiMessageCodes.GAME_PACKET);
+        buffer.put(byteBuffer);
+        buffer.flip();
+        send(byteBuffer);
+    }
+
+    void send(ByteBuffer buffer) {
+        if(state.is(State.CONNECTED)) {
+            session.send(buffer);
+        }
     }
 
     ByteBuffer infoAsBuffer() {

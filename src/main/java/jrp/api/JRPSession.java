@@ -10,5 +10,7 @@ public interface JRPSession {
 
     <T> T attachment();
 
+    <T> T attachment(Class<T> cls);
+
     void attach(Object attachment);
 }

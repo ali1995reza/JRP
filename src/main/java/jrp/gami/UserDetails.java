@@ -2,12 +2,11 @@ package jrp.gami;
 
 import jrp.api.JRPSession;
 import jrp.gami.components.Game;
-import jrp.gami.components.Player;
 
 public class UserDetails {
 
     public enum State {
-        LOGGED_ID, FINDING_GAME, CONNECTED_TO_GAME;
+        LOGGED_IN, FINDING_GAME, CONNECTED_TO_GAME;
 
         public boolean is(State other) {
             return this == other;
@@ -22,7 +21,7 @@ public class UserDetails {
     private final long id;
     private final String username;
     private final JRPSession session;
-    private State state = State.LOGGED_ID;
+    private State state = State.LOGGED_IN;
     private Game game;
 
     public UserDetails(long id, String username, JRPSession session) {
@@ -51,8 +50,9 @@ public class UserDetails {
         return session;
     }
 
-    public void setGame(Game game) {
+    public UserDetails setGame(Game game) {
         this.game = game;
+        return this;
     }
 
     public Game getGame() {

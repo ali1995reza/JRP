@@ -7,7 +7,7 @@ import jrp.gami.components.Player;
 
 import java.nio.ByteBuffer;
 
-public class DoozScript implements GameScript {
+public class XOScript implements GameScript {
 
     @Override
     public void routine(Game game) {
@@ -18,7 +18,8 @@ public class DoozScript implements GameScript {
     }
 
     @Override
-    public void onPlayerStateChanged(Player player) {
+    public ByteBuffer onPlayerStateChanged(Player player) {
+        return null;
     }
 
     @Override

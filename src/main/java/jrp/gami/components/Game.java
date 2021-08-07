@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 public class Game {
 
     public enum State {
-        UNKNOWN((byte)0), INITIALIZE((byte)1), RUNNING((byte)2), PAUSE((byte)3), END((byte)4);
+        UNKNOWN((byte) 0), INITIALIZE((byte) 1), RUNNING((byte) 2), PAUSE((byte) 3), END((byte) 4);
 
         private final byte code;
 
@@ -88,7 +88,6 @@ public class Game {
             } catch (Throwable e) {
                 doEndGame();
             }
-
             return false;
         }
     }
@@ -127,8 +126,7 @@ public class Game {
         synchronized (_lock) {
             try {
                 doHandlePlayerDisconnect(session);
-            }catch (Throwable e)
-            {
+            } catch (Throwable e) {
                 doEndGame();
             }
         }
@@ -138,8 +136,7 @@ public class Game {
         synchronized (_lock) {
             try {
                 doHandlePlayerConnect(session);
-            }catch (Throwable e)
-            {
+            } catch (Throwable e) {
                 doEndGame();
             }
         }
@@ -187,22 +184,32 @@ public class Game {
         return null;
     }
 
-    public boolean doHandlePlayerDisconnect(JRPSession session) {
+    private boolean doHandlePlayerDisconnect(JRPSession session) {
         UserDetails userDetails = session.attachment();
         if (userDetails == null) {
             return false;
         }
         Player player = findPlayerById(userDetails.id());
-        if (player.getState().is(Player.State.DISCONNECTED)) {
+        if (player == null || player.getState().is(Player.State.DISCONNECTED)) {
             return false;
         }
         player.setState(Player.State.DISCONNECTED);
         player.setSession(null);
+        ByteBuffer dataToSend = ByteBuffer.allocate(1 + 8);
+        dataToSend.put(GamiMessageCodes.PLAYER_DISCONNECT);
+        dataToSend.putLong(player.getId());
+        dataToSend.flip();
+        for (Player p : players) {
+            if (p == player) {
+                continue;
+            }
+            p.send(dataToSend.duplicate());
+        }
         script.onPlayerStateChanged(player);
         return true;
     }
 
-    public boolean doHandlePlayerConnect(JRPSession session) {
+    private boolean doHandlePlayerConnect(JRPSession session) {
         UserDetails userDetails = session.attachment();
         if (userDetails == null) {
             return false;
@@ -213,8 +220,33 @@ public class Game {
         }
         player.setState(Player.State.CONNECTED);
         player.setSession(session);
-        script.onPlayerStateChanged(player);
+        ByteBuffer buffer = script.onPlayerStateChanged(player);
+        ByteBuffer gameInfo = infoAsBuffer();
+        ByteBuffer dataToSend = ByteBuffer.allocate(gameInfo.remaining() + buffer.remaining() + 1 + 4);
+        dataToSend.put(GamiMessageCodes.CONNECT_TO_GAME);
+        dataToSend.putInt(gameInfo.remaining());
+        dataToSend.put(gameInfo);
+        dataToSend.put(buffer);
+        dataToSend.flip();
+        player.send(dataToSend);
+        dataToSend = ByteBuffer.allocate(1 + 8);
+        dataToSend.put(GamiMessageCodes.PLAYER_CONNECT);
+        dataToSend.putLong(player.getId());
+        dataToSend.flip();
+        for (Player p : players) {
+            if (p == player) {
+                continue;
+            }
+            p.send(dataToSend.duplicate());
+        }
         return true;
+    }
+
+    public void sendPacketToAll(ByteBuffer byteBuffer) {
+        byteBuffer = byteBuffer.duplicate();
+        for (Player player : players) {
+            player.sendPacket(byteBuffer.duplicate());
+        }
     }
 
     private void doHandleRequest(JRPRequest request) {
@@ -231,16 +263,16 @@ public class Game {
         }
         State lastState = state;
         state = State.INITIALIZE;
-        for(Player player:players) {
-            ByteBuffer buffer =
-                    script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining()+1);
+        for (Player player : players) {
+            if (player.getState().is(Player.State.DISCONNECTED)) {
+                return;
+            }
+            ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
             dataToSend.put(GamiMessageCodes.GAME_INITIALIZED);
             dataToSend.put(buffer);
             dataToSend.flip();
-            if(player.getState().is(Player.State.CONNECTED)) {
-                player.getSession().send(dataToSend);
-            }
+            player.send(dataToSend);
         }
     }
 
@@ -248,19 +280,18 @@ public class Game {
         if (state.isNotOneOf(State.INITIALIZE, State.PAUSE)) {
             throw new IllegalStateException("invalid state");
         }
-
         State lastState = state;
         state = State.RUNNING;
-        for(Player player:players) {
-            ByteBuffer buffer =
-                    script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining()+1);
+        for (Player player : players) {
+            if (player.getState().is(Player.State.DISCONNECTED)) {
+                return;
+            }
+            ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
             dataToSend.put(GamiMessageCodes.GAME_RUN);
             dataToSend.put(buffer);
             dataToSend.flip();
-            if(player.getState().is(Player.State.CONNECTED)) {
-                player.getSession().send(dataToSend);
-            }
+            player.send(dataToSend);
         }
     }
 
@@ -270,46 +301,45 @@ public class Game {
         }
         State lastState = state;
         state = State.PAUSE;
-        for(Player player:players) {
-            ByteBuffer buffer =
-                    script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining()+1);
+        for (Player player : players) {
+            if (player.getState().is(Player.State.DISCONNECTED)) {
+                return;
+            }
+            ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
             dataToSend.put(GamiMessageCodes.GAME_PAUSED);
             dataToSend.put(buffer);
             dataToSend.flip();
-            if(player.getState().is(Player.State.CONNECTED)) {
-                player.getSession().send(dataToSend);
-            }
+            player.send(dataToSend);
         }
     }
 
     private void doEndGame() {
         State lastState = state;
         state = State.END;
-        for(Player player:players) {
-            ByteBuffer buffer =
-                    script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining()+1);
+        for (Player player : players) {
+            if (player.getState().is(Player.State.DISCONNECTED)) {
+                return;
+            }
+            ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
             dataToSend.put(GamiMessageCodes.GAME_END);
             dataToSend.put(buffer);
             dataToSend.flip();
-            if(player.getState().is(Player.State.CONNECTED)) {
-                player.getSession().send(dataToSend);
-            }
+            player.send(dataToSend);
         }
     }
 
     private ByteBuffer infoAsBuffer() {
         ByteBuffer buffer = ByteBuffer.allocate(2048);
         byte[] idAsBytes = id.getBytes();
-        buffer.putInt(idAsBytes.length)
-                .put(idAsBytes);
+        buffer.putInt(idAsBytes.length).put(idAsBytes);
         buffer.put(state.code());
-        for(Player player:players) {
+        for (Player player : players) {
             buffer.put(player.infoAsBuffer());
         }
-        return infoAsBuffer();
-
+        buffer.flip();
+        return buffer;
     }
 
 }

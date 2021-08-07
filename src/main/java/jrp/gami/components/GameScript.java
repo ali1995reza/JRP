@@ -10,7 +10,7 @@ public interface GameScript {
 
     void onRequestReceived(Game game, Player player, JRPRequest request);
 
-    void onPlayerStateChanged(Player player);
+    ByteBuffer onPlayerStateChanged(Player player);
 
     ByteBuffer onGameStateChanged(Game.State lastState, Game game, Player player);
 
