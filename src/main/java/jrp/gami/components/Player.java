@@ -41,7 +41,7 @@ public class Player {
         this.id = id;
         this.username = username;
         this.session = session;
-        this.state = State.CONNECTED;
+        this.state = State.DISCONNECTED;
     }
 
 

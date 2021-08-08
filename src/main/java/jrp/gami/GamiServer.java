@@ -78,6 +78,8 @@ public class GamiServer implements JRPEventListener {
                         otherPlayer.attachment(UserDetails.class)
                                 .setGame(game)
                                 .setState(UserDetails.State.CONNECTED_TO_GAME);
+                        game.handlePlayerConnect(otherPlayer);
+                        game.handlePlayerConnect(request.requester());
                         routineCaller.register(game);
                     } else {
                         details.setState(UserDetails.State.LOGGED_IN);

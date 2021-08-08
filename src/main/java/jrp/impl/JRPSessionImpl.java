@@ -69,6 +69,11 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
     }
 
     @Override
+    public <T> T attachment(Class<T> cls) {
+        return attachment();
+    }
+
+    @Override
     public void attach(Object attachment) {
         this.attachment = attachment;
     }
@@ -101,6 +106,7 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
             int read = socketChannel.read(packetDetector);
             if (read <= 0)
                 throw new IOException("socket input closed");
+            idle = false;
             if (!packetDetector.hasRemaining()) {
                 packetDetector.position(0);
                 int packetSize = packetDetector.getInt();

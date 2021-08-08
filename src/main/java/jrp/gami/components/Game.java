@@ -62,6 +62,7 @@ public class Game {
     private final Consumer<Game> endNotifier;
 
     public Game(String id, List<UserDetails> pl, GameScript script, Consumer<Game> endNotifier) {
+        System.out.println("GAME ID IS : "+id);
         this.id = id;
         this.script = script;
         this.endNotifier = endNotifier;
@@ -195,8 +196,9 @@ public class Game {
         }
         player.setState(Player.State.DISCONNECTED);
         player.setSession(null);
-        ByteBuffer dataToSend = ByteBuffer.allocate(1 + 8);
-        dataToSend.put(GamiMessageCodes.PLAYER_DISCONNECT);
+        ByteBuffer dataToSend = ByteBuffer.allocate(1 + 1 + 8);
+        dataToSend.put(GamiMessageCodes.PLAYER_STATE_CHANGED);
+        dataToSend.put(Player.State.DISCONNECTED.code());
         dataToSend.putLong(player.getId());
         dataToSend.flip();
         for (Player p : players) {
@@ -224,13 +226,13 @@ public class Game {
         ByteBuffer gameInfo = infoAsBuffer();
         ByteBuffer dataToSend = ByteBuffer.allocate(gameInfo.remaining() + buffer.remaining() + 1 + 4);
         dataToSend.put(GamiMessageCodes.CONNECT_TO_GAME);
-        dataToSend.putInt(gameInfo.remaining());
         dataToSend.put(gameInfo);
         dataToSend.put(buffer);
         dataToSend.flip();
         player.send(dataToSend);
-        dataToSend = ByteBuffer.allocate(1 + 8);
-        dataToSend.put(GamiMessageCodes.PLAYER_CONNECT);
+        dataToSend = ByteBuffer.allocate(1 + 1 + 8);
+        dataToSend.put(GamiMessageCodes.PLAYER_STATE_CHANGED);
+        dataToSend.put(Player.State.CONNECTED.code());
         dataToSend.putLong(player.getId());
         dataToSend.flip();
         for (Player p : players) {
@@ -268,8 +270,9 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
-            dataToSend.put(GamiMessageCodes.GAME_INITIALIZED);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
+            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
+            dataToSend.put(state.code());
             dataToSend.put(buffer);
             dataToSend.flip();
             player.send(dataToSend);
@@ -287,8 +290,9 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
-            dataToSend.put(GamiMessageCodes.GAME_RUN);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
+            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
+            dataToSend.put(state.code());
             dataToSend.put(buffer);
             dataToSend.flip();
             player.send(dataToSend);
@@ -306,8 +310,9 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
-            dataToSend.put(GamiMessageCodes.GAME_PAUSED);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
+            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
+            dataToSend.put(state.code());
             dataToSend.put(buffer);
             dataToSend.flip();
             player.send(dataToSend);
@@ -322,8 +327,9 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1);
-            dataToSend.put(GamiMessageCodes.GAME_END);
+            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
+            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
+            dataToSend.put(state.code());
             dataToSend.put(buffer);
             dataToSend.flip();
             player.send(dataToSend);
@@ -335,6 +341,7 @@ public class Game {
         byte[] idAsBytes = id.getBytes();
         buffer.putInt(idAsBytes.length).put(idAsBytes);
         buffer.put(state.code());
+        buffer.putInt(players.size());
         for (Player player : players) {
             buffer.put(player.infoAsBuffer());
         }
