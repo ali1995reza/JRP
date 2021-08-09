@@ -21,6 +21,7 @@ public class GamiServer implements JRPEventListener {
 
     public GamiServer(InetSocketAddress address) {
         this.server = new JRPServerImpl(address);
+        this.server.addEventListener(this);
         this.server.start();
         this.routineCaller = new GameRoutineCaller(5);
         this.server.registerRequestHandler(88,this::echo);
@@ -48,9 +49,9 @@ public class GamiServer implements JRPEventListener {
             //todo handle
             //for now just get username
             String username = getAsString(request.data());
-            session.attach(new UserDetails(username.hashCode(), username, session));
+            session.attach(new UserDetails(Math.abs(username.hashCode()), username, session));
             ByteBuffer b = ByteBuffer.allocate(8);
-            b.putLong(username.hashCode());
+            b.putLong(Math.abs(username.hashCode()));
             b.flip();
             request.response(ProtocolConstants.StatusCodes.OK, b);
         } else {

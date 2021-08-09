@@ -201,6 +201,7 @@ public class Game {
         dataToSend.put(Player.State.DISCONNECTED.code());
         dataToSend.putLong(player.getId());
         dataToSend.flip();
+        System.out.println("Player "+player.getId()+" is disconnected");
         for (Player p : players) {
             if (p == player) {
                 continue;
