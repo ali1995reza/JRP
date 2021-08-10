@@ -3,6 +3,8 @@ package jrp.gami;
 import jrp.api.*;
 import jrp.gami.components.Game;
 import jrp.impl.JRPServerImpl;
+import jrp.impl.ThreadLocalBuffer;
+import jrp.impl.utils.BufferUtils;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -19,22 +21,21 @@ public class GamiServer implements JRPEventListener {
     private final GameRoutineCaller routineCaller;
     private final ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
+    private final ThreadLocalBuffer gameHeadersBuffers;
+    private final ThreadLocalBuffer gameBuffers;
+
     public GamiServer(InetSocketAddress address) {
         this.server = new JRPServerImpl(address);
         this.server.addEventListener(this);
         this.server.start();
+        this.gameHeadersBuffers = new ThreadLocalBuffer(100);
+        this.gameBuffers = new ThreadLocalBuffer(10240);
         this.routineCaller = new GameRoutineCaller(5);
         this.server.registerRequestHandler(88,this::echo);
         this.server.registerRequestHandler(100, this::handleLogin);
         this.server.registerRequestHandler(200, this::handleFindGame);
         this.server.registerRequestHandler(300, this::stopFindGame);
         this.server.registerRequestHandler(400, this::handleGameRequest);
-    }
-
-    private static String getAsString(ByteBuffer b) {
-        byte[] data = new byte[b.remaining()];
-        b.get(data);
-        return new String(data);
     }
 
     private void echo(JRPRequest request) {
@@ -48,7 +49,7 @@ public class GamiServer implements JRPEventListener {
         if (session.attachment() == null) {
             //todo handle
             //for now just get username
-            String username = getAsString(request.data());
+            String username = BufferUtils.getString(request.data());
             session.attach(new UserDetails(Math.abs(username.hashCode()), username, session));
             ByteBuffer b = ByteBuffer.allocate(8);
             b.putLong(Math.abs(username.hashCode()));
@@ -71,7 +72,7 @@ public class GamiServer implements JRPEventListener {
                     Game game = new Game(UUID.randomUUID().toString(), Arrays.asList(otherPlayer.attachment(), request.requester().attachment()), new XOScript(), g -> {
                         routineCaller.register(g);
                         games.remove(g.id(), g);
-                    });
+                    }, gameHeadersBuffers, gameBuffers);
                     games.put(game.id(), game);
                     if (game.initialize()) {
                         details.setGame(game)

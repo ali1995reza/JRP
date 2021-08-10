@@ -3,6 +3,8 @@ package jrp.impl;
 import jrp.api.JRPEventListener;
 import jrp.api.JRPSession;
 import jrp.api.ProtocolConstants;
+import jrp.impl.utils.BufferUtils;
+import jrp.impl.utils.DuplicateWithSize;
 import jrp.utils.transport.nio.model.IoContext;
 import jrp.utils.transport.nio.model.IoHandler;
 import jrp.utils.transport.nio.model.IoOperation;
@@ -17,6 +19,7 @@ import java.util.function.BiConsumer;
 public class JRPSessionImpl implements JRPSession, IoHandler {
 
     private final static ByteBuffer EMPTY_PACKET = ByteBuffer.allocate(0);
+    private final static ByteBuffer MESSAGE_HEADER = ByteBuffer.wrap(new byte[]{ProtocolConstants.MESSAGE});
 
     private final SocketChannel socketChannel;
     private final JRPEventListener eventListener;
@@ -36,26 +39,27 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
     }
 
 
-    public void sendRaw(ByteBuffer data) {
+    public void sendRaw(ByteBuffer ... buffers) {
+        DuplicateWithSize data = BufferUtils.duplicate(buffers);
+        sendRaw(data);
+    }
+
+    private void sendRaw(DuplicateWithSize data) {
         synchronized (sendBuffer) {
-            data = data.duplicate();
-            if (data.remaining() + 4 <= sendBuffer.remaining()) {
-                sendBuffer.putInt(data.remaining());
-                sendBuffer.put(data);
+            if (data.size() + 4 <= sendBuffer.remaining()) {
+                sendBuffer.putInt(data.size());
+                data.forEach(sendBuffer::put);
+                ioState.doReadAndWrite();
             } else {
                 throw new IllegalStateException("buffer is full");
             }
-            ioState.doReadAndWrite();
         }
     }
 
     @Override
-    public void send(ByteBuffer data) {
-        ByteBuffer allocate = ByteBuffer.allocate(1+data.remaining());
-        allocate.put(ProtocolConstants.MESSAGE);
-        allocate.put(data);
-        allocate.flip();
-        sendRaw(allocate);
+    public void send(ByteBuffer ... buffers) {
+        DuplicateWithSize duplicate = BufferUtils.duplicate(MESSAGE_HEADER, buffers);
+        sendRaw(duplicate);
     }
 
     @Override

@@ -5,6 +5,7 @@ import jrp.api.JRPSession;
 import jrp.gami.GamiMessageCodes;
 import jrp.gami.GamiStatusCodes;
 import jrp.gami.UserDetails;
+import jrp.impl.ThreadLocalBuffer;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -54,14 +55,20 @@ public class Game {
         }
     }
 
+    private final static ByteBuffer CONNECT_TO_GAME_HEADER = ByteBuffer.wrap(new byte[]{GamiMessageCodes.CONNECT_TO_GAME}).asReadOnlyBuffer();
+
     private final List<Player> players;
     private final GameScript script;
     private final Object _lock = new Object();
     private State state = State.UNKNOWN;
     private final String id;
     private final Consumer<Game> endNotifier;
+    private final ThreadLocalBuffer headerBuffers;
+    private final ThreadLocalBuffer gameBuffers;
 
-    public Game(String id, List<UserDetails> pl, GameScript script, Consumer<Game> endNotifier) {
+    public Game(String id, List<UserDetails> pl, GameScript script, Consumer<Game> endNotifier, ThreadLocalBuffer headerBuffers, ThreadLocalBuffer gameBuffers) {
+        this.headerBuffers = headerBuffers;
+        this.gameBuffers = gameBuffers;
         System.out.println("GAME ID IS : "+id);
         this.id = id;
         this.script = script;
@@ -91,6 +98,10 @@ public class Game {
             }
             return false;
         }
+    }
+
+    public ByteBuffer getBuffer() {
+        return gameBuffers.getBuffer();
     }
 
     public void run() {
@@ -185,6 +196,15 @@ public class Game {
         return null;
     }
 
+
+    private ByteBuffer getPlayerStateChangedHeaderBuffer(Player player) {
+        ByteBuffer buffer = headerBuffers.getBuffer();
+        buffer.put(GamiMessageCodes.PLAYER_STATE_CHANGED);
+        buffer.put(player.getState().code());
+        buffer.putLong(player.getId());
+        return buffer;
+    }
+
     private boolean doHandlePlayerDisconnect(JRPSession session) {
         UserDetails userDetails = session.attachment();
         if (userDetails == null) {
@@ -196,12 +216,8 @@ public class Game {
         }
         player.setState(Player.State.DISCONNECTED);
         player.setSession(null);
-        ByteBuffer dataToSend = ByteBuffer.allocate(1 + 1 + 8);
-        dataToSend.put(GamiMessageCodes.PLAYER_STATE_CHANGED);
-        dataToSend.put(Player.State.DISCONNECTED.code());
-        dataToSend.putLong(player.getId());
-        dataToSend.flip();
         System.out.println("Player "+player.getId()+" is disconnected");
+        ByteBuffer dataToSend = getPlayerStateChangedHeaderBuffer(player);
         for (Player p : players) {
             if (p == player) {
                 continue;
@@ -224,18 +240,8 @@ public class Game {
         player.setState(Player.State.CONNECTED);
         player.setSession(session);
         ByteBuffer buffer = script.onPlayerStateChanged(player);
-        ByteBuffer gameInfo = infoAsBuffer();
-        ByteBuffer dataToSend = ByteBuffer.allocate(gameInfo.remaining() + buffer.remaining() + 1 + 4);
-        dataToSend.put(GamiMessageCodes.CONNECT_TO_GAME);
-        dataToSend.put(gameInfo);
-        dataToSend.put(buffer);
-        dataToSend.flip();
-        player.send(dataToSend);
-        dataToSend = ByteBuffer.allocate(1 + 1 + 8);
-        dataToSend.put(GamiMessageCodes.PLAYER_STATE_CHANGED);
-        dataToSend.put(Player.State.CONNECTED.code());
-        dataToSend.putLong(player.getId());
-        dataToSend.flip();
+        player.send(CONNECT_TO_GAME_HEADER, infoAsBuffer(), buffer);
+        ByteBuffer dataToSend = getPlayerStateChangedHeaderBuffer(player);
         for (Player p : players) {
             if (p == player) {
                 continue;
@@ -260,6 +266,15 @@ public class Game {
         script.onRequestReceived(this, findPlayerById(userDetails.id()), request);
     }
 
+
+    private ByteBuffer getGameStateChangedHeader() {
+        ByteBuffer dataToSend = headerBuffers.getBuffer();
+        dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
+        dataToSend.put(state.code());
+        dataToSend.flip();
+        return dataToSend;
+    }
+
     private void doInitialize() {
         if (state.isNot(State.UNKNOWN)) {
             throw new IllegalStateException("bad state !");
@@ -271,12 +286,7 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
-            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
-            dataToSend.put(state.code());
-            dataToSend.put(buffer);
-            dataToSend.flip();
-            player.send(dataToSend);
+            player.send(getGameStateChangedHeader(), buffer);
         }
     }
 
@@ -291,12 +301,7 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
-            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
-            dataToSend.put(state.code());
-            dataToSend.put(buffer);
-            dataToSend.flip();
-            player.send(dataToSend);
+            player.send(getGameStateChangedHeader(), buffer);
         }
     }
 
@@ -311,12 +316,7 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
-            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
-            dataToSend.put(state.code());
-            dataToSend.put(buffer);
-            dataToSend.flip();
-            player.send(dataToSend);
+            player.send(getGameStateChangedHeader(), buffer);
         }
     }
 
@@ -328,12 +328,7 @@ public class Game {
                 return;
             }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
-            ByteBuffer dataToSend = ByteBuffer.allocate(buffer.remaining() + 1 + 1);
-            dataToSend.put(GamiMessageCodes.GAME_STATE_CHANGED);
-            dataToSend.put(state.code());
-            dataToSend.put(buffer);
-            dataToSend.flip();
-            player.send(dataToSend);
+            player.send(getGameStateChangedHeader(), buffer);
         }
     }
 

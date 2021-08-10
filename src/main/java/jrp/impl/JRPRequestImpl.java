@@ -13,13 +13,15 @@ public class JRPRequestImpl implements JRPRequest {
     private final int nextToken;
     private final int requestId;
     private boolean respond = false;
+    private final ThreadLocalBuffer headerBuffers;
 
     public JRPRequestImpl(JRPSessionImpl session, ByteBuffer data, int nextToken, int requestId) {
         this.session = session;
         this.data = data;
         this.nextToken = nextToken;
-        System.out.println("NEXT TOKEN IS : "+nextToken);
+        System.out.println("NEXT TOKEN IS : " + nextToken);
         this.requestId = requestId;
+        this.headerBuffers = new ThreadLocalBuffer(9);
     }
 
 
@@ -33,32 +35,30 @@ public class JRPRequestImpl implements JRPRequest {
         return data;
     }
 
+    private ByteBuffer getHeaderBuffer(int status) {
+        ByteBuffer headerBuffer = headerBuffers.getBuffer();
+        headerBuffer.clear();
+        headerBuffer.put(ProtocolConstants.RESPONSE)
+                .putInt(nextToken)
+                .putInt(status);
+        headerBuffer.flip();
+        return headerBuffer;
+    }
+
     @Override
     public synchronized void response(int status, ByteBuffer response) {
-        if(respond)
+        if (respond)
             throw new IllegalStateException("already responded");
         respond = true;
-        response = response.duplicate();
-        ByteBuffer buffer = ByteBuffer.allocate(response.remaining()+4+4+1);
-        buffer.put(ProtocolConstants.RESPONSE)
-                .putInt(nextToken)
-                .putInt(status)
-                .put(response);
-        buffer.flip();
-        session.sendRaw(buffer);
+        session.sendRaw(getHeaderBuffer(status), response);
     }
 
     @Override
     public synchronized void response(int status) {
-        if(respond)
+        if (respond)
             throw new IllegalStateException("already responded");
         respond = true;
-        ByteBuffer buffer = ByteBuffer.allocate(4+4+1);
-        buffer.put(ProtocolConstants.RESPONSE)
-                .putInt(nextToken)
-                .putInt(status);
-        buffer.flip();
-        session.sendRaw(buffer);
+        session.sendRaw(getHeaderBuffer(status));
     }
 
     @Override

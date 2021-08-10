@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 public interface JRPSession {
 
-    void send(ByteBuffer data);
+    void send(ByteBuffer ... buffers);
 
     void close();
 

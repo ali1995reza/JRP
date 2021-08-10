@@ -81,9 +81,9 @@ public class Player {
         send(byteBuffer);
     }
 
-    void send(ByteBuffer buffer) {
+    void send(ByteBuffer ... buffers) {
         if(state.is(State.CONNECTED)) {
-            session.send(buffer);
+            session.send(buffers);
         }
     }
 
