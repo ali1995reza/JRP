@@ -1,7 +1,6 @@
 package jrp.utils.packagefire;
 
 import jrp.utils.packagefire.exceptions.PackageLoadException;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -160,7 +159,7 @@ class PackageFireClassLoader extends URLClassLoader {
             }
         } else {
             closeIt();
-            throw new NotImplementedException();
+            throw new IllegalStateException("not implemented");
         }
     }
 

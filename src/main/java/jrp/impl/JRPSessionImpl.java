@@ -114,7 +114,6 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
             if (!packetDetector.hasRemaining()) {
                 packetDetector.position(0);
                 int packetSize = packetDetector.getInt();
-                System.out.println(packetSize);
                 packetDetector.clear();
                 if (packetSize < 0)
                     throw new IOException("packet size negative");
@@ -142,7 +141,6 @@ public class JRPSessionImpl implements JRPSession, IoHandler {
         synchronized (sendBuffer) {
             sendBuffer.flip();
             int wrote = socketChannel.write(sendBuffer);
-            System.out.println("Wrote : "+wrote);
             if (wrote <= 0)
                 throw new IOException("output closed");
 

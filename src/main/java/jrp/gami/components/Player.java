@@ -33,21 +33,25 @@ public class Player {
             ByteBuffer.wrap(new byte[]{GamiMessageCodes.GAME_PACKET});
 
     private final long id;
+    private final int inGameIndex;
     private final String username;
     private State state;
     private JRPSession session;
+    private Object attachment;
 
-    public Player(long id, String username, JRPSession session) {
+    public Player(long id, int inGameIndex, String username, JRPSession session) {
         this.id = id;
+        this.inGameIndex = inGameIndex;
         this.username = username;
         this.session = session;
         this.state = State.DISCONNECTED;
     }
 
+    public int inGameIndex() {
+        return inGameIndex;
+    }
 
     final void setState(State state) {
-        if(state.is(State.DISCONNECTED))
-            this.session = null;
         this.state = state;
     }
 
@@ -74,11 +78,7 @@ public class Player {
     public void sendPacket(ByteBuffer byteBuffer) {
         if(state.is(State.DISCONNECTED))
             return;
-        ByteBuffer buffer = ByteBuffer.allocate(byteBuffer.remaining()+1);
-        buffer.put(GamiMessageCodes.GAME_PACKET);
-        buffer.put(byteBuffer);
-        buffer.flip();
-        send(byteBuffer);
+        send(GAME_PACKET_HEADER, byteBuffer);
     }
 
     void send(ByteBuffer ... buffers) {
@@ -86,6 +86,19 @@ public class Player {
             session.send(buffers);
         }
     }
+
+    public void attach(Object o) {
+        this.attachment = o;
+    }
+
+    public <T> T attachment() {
+        return (T) attachment;
+    }
+
+    public <T> T attachment(Class<T> clazz) {
+        return attachment();
+    }
+
 
     ByteBuffer infoAsBuffer() {
         byte[] nameBytes = username.getBytes();

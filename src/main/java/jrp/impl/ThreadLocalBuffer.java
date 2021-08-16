@@ -32,7 +32,8 @@ public class ThreadLocalBuffer {
             buffer = createByteBuffer();
             threadLocal.set(buffer);
         }
-        return buffer.clear();
+        buffer.clear();
+        return buffer;
     }
 
 

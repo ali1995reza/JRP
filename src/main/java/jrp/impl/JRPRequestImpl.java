@@ -19,7 +19,6 @@ public class JRPRequestImpl implements JRPRequest {
         this.session = session;
         this.data = data;
         this.nextToken = nextToken;
-        System.out.println("NEXT TOKEN IS : " + nextToken);
         this.requestId = requestId;
         this.headerBuffers = new ThreadLocalBuffer(9);
     }

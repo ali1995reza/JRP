@@ -113,7 +113,7 @@ public class GamiServer implements JRPEventListener {
 
     private void handleGameRequest(JRPRequest request) {
         UserDetails details = request.requester().attachment();
-        if (details == null || details.state().isNot(UserDetails.State.FINDING_GAME)) {
+        if (details == null || details.state().isNot(UserDetails.State.CONNECTED_TO_GAME)) {
             request.response(GamiStatusCodes.USER_BAD_STATE);
         } else {
             Game game = details.getGame();

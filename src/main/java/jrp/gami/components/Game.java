@@ -2,6 +2,7 @@ package jrp.gami.components;
 
 import jrp.api.JRPRequest;
 import jrp.api.JRPSession;
+import jrp.gami.GameScriptNormalizer;
 import jrp.gami.GamiMessageCodes;
 import jrp.gami.GamiStatusCodes;
 import jrp.gami.UserDetails;
@@ -55,7 +56,11 @@ public class Game {
         }
     }
 
-    private final static ByteBuffer CONNECT_TO_GAME_HEADER = ByteBuffer.wrap(new byte[]{GamiMessageCodes.CONNECT_TO_GAME}).asReadOnlyBuffer();
+    private final static ByteBuffer CONNECT_TO_GAME_HEADER =
+            ByteBuffer.allocate(1)
+            .put(GamiMessageCodes.CONNECT_TO_GAME)
+            .flip()
+            .asReadOnlyBuffer();
 
     private final List<Player> players;
     private final GameScript script;
@@ -71,11 +76,12 @@ public class Game {
         this.gameBuffers = gameBuffers;
         System.out.println("GAME ID IS : "+id);
         this.id = id;
-        this.script = script;
+        this.script = GameScriptNormalizer.wrap(script);
         this.endNotifier = endNotifier;
         List<Player> players = new ArrayList<>();
+        int i = 0;
         for (UserDetails player : pl) {
-            players.add(new Player(player.id(), player.getUsername(), player.getSession()));
+            players.add(new Player(player.id(), i++, player.getUsername(), player.getSession()));
         }
         this.players = Collections.unmodifiableList(players);
     }
@@ -129,6 +135,7 @@ public class Game {
             try {
                 doHandleRequest(request);
             } catch (Throwable e) {
+                e.printStackTrace();
                 doEndGame();
             }
         }
@@ -149,6 +156,7 @@ public class Game {
             try {
                 doHandlePlayerConnect(session);
             } catch (Throwable e) {
+                e.printStackTrace();
                 doEndGame();
             }
         }
@@ -196,6 +204,9 @@ public class Game {
         return null;
     }
 
+    public List<Player> players() {
+        return players;
+    }
 
     private ByteBuffer getPlayerStateChangedHeaderBuffer(Player player) {
         ByteBuffer buffer = headerBuffers.getBuffer();
@@ -224,7 +235,7 @@ public class Game {
             }
             p.send(dataToSend.duplicate());
         }
-        script.onPlayerStateChanged(player);
+        script.onPlayerDisconnected(this, player);
         return true;
     }
 
@@ -239,7 +250,7 @@ public class Game {
         }
         player.setState(Player.State.CONNECTED);
         player.setSession(session);
-        ByteBuffer buffer = script.onPlayerStateChanged(player);
+        ByteBuffer buffer = script.onPlayerConnected(this, player);
         player.send(CONNECT_TO_GAME_HEADER, infoAsBuffer(), buffer);
         ByteBuffer dataToSend = getPlayerStateChangedHeaderBuffer(player);
         for (Player p : players) {
@@ -282,9 +293,6 @@ public class Game {
         State lastState = state;
         state = State.INITIALIZE;
         for (Player player : players) {
-            if (player.getState().is(Player.State.DISCONNECTED)) {
-                return;
-            }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
             player.send(getGameStateChangedHeader(), buffer);
         }
@@ -297,9 +305,6 @@ public class Game {
         State lastState = state;
         state = State.RUNNING;
         for (Player player : players) {
-            if (player.getState().is(Player.State.DISCONNECTED)) {
-                return;
-            }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
             player.send(getGameStateChangedHeader(), buffer);
         }
@@ -312,9 +317,6 @@ public class Game {
         State lastState = state;
         state = State.PAUSE;
         for (Player player : players) {
-            if (player.getState().is(Player.State.DISCONNECTED)) {
-                return;
-            }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
             player.send(getGameStateChangedHeader(), buffer);
         }
@@ -324,9 +326,6 @@ public class Game {
         State lastState = state;
         state = State.END;
         for (Player player : players) {
-            if (player.getState().is(Player.State.DISCONNECTED)) {
-                return;
-            }
             ByteBuffer buffer = script.onGameStateChanged(lastState, this, player);
             player.send(getGameStateChangedHeader(), buffer);
         }
